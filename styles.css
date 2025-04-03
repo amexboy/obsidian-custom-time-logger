@@ -1,129 +1,252 @@
-/* Keep general styles for view, info, add-entry */
+/* styles.css */
+
+/* --- Overall Container & Theme --- */
 .time-log-view {
-	font-family: sans-serif;
-	border: 1px solid var(--background-modifier-border);
-	border-radius: 8px;
+	font-family: var(
+		--font-interface,
+		-apple-system,
+		BlinkMacSystemFont,
+		"Segoe UI",
+		Roboto,
+		Oxygen-Sans,
+		Ubuntu,
+		Cantarell,
+		"Helvetica Neue",
+		sans-serif
+	); /* Use Obsidian's interface font */
+	background-color: var(
+		--background-secondary,
+		#2f2f2f
+	); /* Dark background */
+	color: var(--text-normal, #ddd); /* Light text */
 	padding: 15px;
-	background-color: var(--background-secondary);
+	border-radius: 8px;
+	margin-bottom: 20px; /* Space below the block */
 }
 
+/* --- Header Info --- */
 .time-log-info {
+	background-color: var(
+		--background-primary,
+		#202020
+	); /* Slightly darker header */
+	padding: 15px 20px;
+	border-radius: 6px;
+	margin-bottom: 20px;
+}
+
+.time-log-info h3 {
+	margin-top: 0;
 	margin-bottom: 15px;
-	padding-bottom: 10px;
-	border-bottom: 1px solid var(--background-modifier-border);
+	font-size: 1.6em;
+	font-weight: 600;
 }
-.time-log-info h3 { margin-top: 0; margin-bottom: 8px; }
 
-.time-log-add-entry {
-	display: flex; gap: 8px; margin-bottom: 15px; align-items: center; flex-wrap: wrap;
-}
-.time-log-add-entry input[type='text'] {
-	padding: 5px 8px; border: 1px solid var(--background-modifier-border); border-radius: 4px; background-color: var(--background-primary); color: var(--text-normal);
-}
-.time-log-add-entry button { padding: 5px 10px; font-weight: bold; }
-
-/* Styles for collapsible sections */
-.time-log-section-header {
-	cursor: pointer;
+.time-log-meta {
+	font-size: 0.95em;
+	color: var(--text-muted, #aaa);
 	margin-bottom: 5px;
-	color: var(--text-muted);
-	user-select: none;
+}
+
+.time-log-meta span {
+	display: inline-block;
+	width: 60px; /* Align keys */
+	color: var(--text-faint, #888);
+}
+
+/* --- Add Entry Section --- */
+.time-log-add-entry {
+	display: flex;
+	align-items: center;
+	gap: 8px; /* Space between elements */
+	padding: 10px 15px;
+	background-color: var(--background-secondary-alt, #3a3a3a);
+	border-radius: 6px;
+	margin-bottom: 25px;
+}
+
+.time-log-add-entry input[type="date"] {
+	background-color: var(--background-modifier-form-field, #444);
+	border: 1px solid var(--background-modifier-border, #555);
+	color: var(--text-normal);
+	padding: 6px 10px;
+	border-radius: 4px;
+	flex-grow: 1; /* Take available space */
+	min-width: 120px;
+}
+
+/* Style date input placeholder text */
+.time-log-add-entry input[type="date"]::-webkit-calendar-picker-indicator {
+	filter: invert(0.8); /* Make calendar icon lighter on dark background */
+}
+
+.time-log-add-button,
+.time-log-add-action {
+	background-color: var(--background-modifier-border-hover, #555);
+	border: none;
+	color: var(--text-muted, #ccc);
+	padding: 6px 12px;
+	border-radius: 4px;
+	cursor: pointer;
+	font-size: 0.9em;
+	transition: background-color 0.2s ease;
+}
+
+.time-log-add-button:hover,
+.time-log-add-action:hover {
+	background-color: var(--background-modifier-hover, #666);
+	color: var(--text-normal);
+}
+
+.time-log-add-action {
+	font-size: 1.4em;
+	padding: 2px 10px; /* Adjust padding for '+' */
 	font-weight: bold;
 }
-.time-log-section-header:hover { color: var(--text-normal); }
 
-.time-log-month { margin-bottom: 15px; }
-.time-log-week {
-	margin-left: 10px;
-	padding-left: 10px;
-	border-left: 1px solid var(--background-modifier-border-hover);
-	margin-bottom: 10px;
+/* --- Month/Week/Day Structure --- */
+.time-log-entries {
+	/* Container for all month sections */
 }
-.time-log-month-content, .time-log-week-content { padding-top: 5px; }
 
-/* Styles for the day's section and table */
-.time-log-day-section {
-	margin-bottom: 12px;
+.time-log-month {
+	margin-bottom: 15px;
+}
+
+.time-log-week {
+	margin-bottom: 10px;
+	padding-left: 15px; /* Indent weeks */
+	border-left: 2px solid var(--background-modifier-border, #444);
+	margin-left: 5px; /* Space for the border */
+}
+
+.time-log-section-header {
+	padding: 8px 5px;
+	cursor: pointer;
+	font-weight: 600;
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	border-radius: 4px;
+	transition: background-color 0.2s ease;
+}
+.time-log-section-header:hover {
+	background-color: var(--background-modifier-hover, #404040);
+}
+
+.time-log-month > .time-log-section-header {
+	font-size: 1.1em;
+	margin-bottom: 5px; /* Space between month header and content */
+}
+
+.time-log-week > .time-log-section-header {
+	font-size: 1em;
+	color: var(--text-muted);
+}
+
+.time-log-collapse-indicator,
+.time-log-collapse-indicator-month {
+	display: inline-block;
+	width: 1em; /* Reserve space */
+	text-align: center;
+	font-size: 0.8em;
+	transition: transform 0.2s ease-in-out;
+}
+
+.time-log-collapse-indicator.collapsed,
+.time-log-collapse-indicator-month.collapsed {
+	transform: rotate(-90deg);
+}
+.time-log-collapse-indicator.expanded,
+.time-log-collapse-indicator-month.expanded {
+	transform: rotate(0deg);
+}
+
+/* Align month indicator to the right */
+.time-log-month > .time-log-section-header {
+	justify-content: space-between;
+}
+.time-log-month > .time-log-section-header .time-log-collapse-indicator-month {
+	order: 1; /* Move indicator to the end */
+}
+
+.time-log-month-content,
+.time-log-week-content {
+	padding-top: 5px;
+}
+
+/* --- Day Entry --- */
+.time-log-day-entry {
+	margin-bottom: 15px;
+	padding-left: 10px; /* Indent day details */
 }
 
 .time-log-day-header {
-	font-weight: bold;
-	margin-bottom: 4px;
+	display: flex;
+	justify-content: space-between;
+	align-items: baseline;
+	margin-bottom: 5px;
+	padding: 3px 0;
+}
+
+.time-log-day-weekday {
+	font-weight: 500;
+	color: var(--text-normal);
+}
+
+.time-log-day-total {
+	font-size: 0.95em;
+	font-weight: 500;
+	color: var(--text-muted, #bbb);
+	padding-left: 10px; /* Space from weekday if they wrap */
+}
+
+.time-log-day-entries-list {
+	padding-left: 15px; /* Indent individual entries under the day */
+	border-left: 1px dotted var(--background-modifier-border, #555);
+}
+
+/* --- Single Entry Display --- */
+.time-log-single-entry {
+	display: flex;
+	align-items: center;
+	gap: 15px; /* Space between time, break, duration */
+	padding: 4px 0;
+	font-size: 0.9em;
+	color: var(--text-muted);
+}
+
+.time-log-entry-time {
+	min-width: 100px; /* Adjust as needed for alignment */
+	flex-shrink: 0;
+}
+
+.time-log-entry-break {
+	min-width: 80px; /* Adjust as needed */
+	flex-shrink: 0;
 	color: var(--text-faint);
 }
 
-.time-log-day-table {
-	width: 100%;
-	border-collapse: collapse;
-	font-size: 0.9em;
-}
-
-.time-log-day-table th,
-.time-log-day-table td {
-	border: 1px solid var(--background-modifier-border);
-	padding: 4px 6px;
-	text-align: left;
-	vertical-align: top; /* Align content to top */
-}
-
-.time-log-day-table th {
-	background-color: var(--background-secondary-alt);
-	font-weight: 600;
-	font-size: 0.9em;
-}
-
-/* Specific column widths (adjust as needed) */
-.time-log-day-table th:nth-child(1), .time-log-day-table td:nth-child(1) { width: 12%; } /* From */
-.time-log-day-table th:nth-child(2), .time-log-day-table td:nth-child(2) { width: 12%; } /* To */
-.time-log-day-table th:nth-child(3), .time-log-day-table td:nth-child(3) { width: 15%; } /* Break */
-.time-log-day-table th:nth-child(4), .time-log-day-table td:nth-child(4) { width: 18%; } /* Duration */
-.time-log-day-table th:nth-child(5), .time-log-day-table td:nth-child(5) { width: auto; } /* Details/Actions */
-
-
-/* Entry row specific styles */
-.time-log-entry-row td {
-	/* Optional: slightly lighter border for entry rows */
-	/* border-color: var(--background-modifier-border-hover); */
-}
-
-.time-log-entry-details {
-	display: flex;
-	justify-content: space-between;
-	align-items: flex-start; /* Align note and actions */
+.time-log-entry-duration {
+	min-width: 60px; /* Adjust as needed */
+	flex-shrink: 0;
+	font-weight: 500;
+	color: var(--text-muted);
+	text-align: right; /* Align duration right within its space */
 }
 
 .time-log-entry-note {
 	font-style: italic;
-	color: var(--text-muted);
-	font-size: 0.9em;
-	margin-right: 10px; /* Space between note and actions */
-	flex-grow: 1; /* Allow note to take available space */
-}
-
-.time-log-entry-actions {
-	cursor: pointer;
 	color: var(--text-faint);
-	opacity: 0.5;
-	white-space: nowrap; /* Prevent wrapping */
-}
-.time-log-entry-row:hover .time-log-entry-actions {
-	opacity: 1;
+	margin-left: auto; /* Push note to the right if space allows */
+	padding-left: 10px;
 }
 
-/* Total row styles */
-.time-log-total-row td {
-	background-color: var(--background-secondary-alt);
-	border-top: 2px solid var(--background-modifier-border-focus); /* Emphasize total */
-}
-.time-log-total-row strong {
-	color: var(--text-normal);
-}
-
-/* Error styling */
+/* --- Error Styling --- */
 .time-log-error {
-	color: var(--text-error);
-	background-color: var(--background-primary-alt);
+	color: var(--text-error, #ff6666);
+	background-color: var(--background-primary-alt, #332222);
 	padding: 10px;
 	border-radius: 4px;
-	white-space: pre-wrap; /* Ensure error message wraps */
+	white-space: pre-wrap; /* Ensure error messages wrap */
 }
