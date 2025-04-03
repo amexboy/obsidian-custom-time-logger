@@ -1,134 +1,120 @@
-import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting } from 'obsidian';
+import { App, Plugin, MarkdownPostProcessorContext } from 'obsidian';
+import { parse } from 'yaml';
+import {
+	parse as dateParse,
+	format,
+	differenceInMinutes,
+	addMinutes,
+	getWeek,
+} from 'date-fns';
 
-// Remember to rename these classes and interfaces!
+// Import the React component and interfaces
+import { TimeLogView } from './src/components'; // Adjust path if needed
+import type { TimeLogRootData } from './src/components';
+import {createRoot, Root} from "react-dom/client";
+import {createElement} from "react"; // Import type if needed
 
-interface MyPluginSettings {
-	mySetting: string;
-}
-
-const DEFAULT_SETTINGS: MyPluginSettings = {
-	mySetting: 'default'
-}
-
-export default class MyPlugin extends Plugin {
-	settings: MyPluginSettings;
-
+export default class TimeLoggerPlugin extends Plugin {
+	root: Root | null = null;
 	async onload() {
-		await this.loadSettings();
+		console.log('Loading Time Log Renderer Plugin (React)');
 
-		// This creates an icon in the left ribbon.
-		const ribbonIconEl = this.addRibbonIcon('dice', 'Sample Plugin', (evt: MouseEvent) => {
-			// Called when the user clicks the icon.
-			new Notice('This is a notice!');
-		});
-		// Perform additional things with the ribbon
-		ribbonIconEl.addClass('my-plugin-ribbon-class');
+		this.registerMarkdownCodeBlockProcessor(
+			'time-log',
+			this.processTimeLogBlock.bind(this),
+		);
+	}
 
-		// This adds a status bar item to the bottom of the app. Does not work on mobile apps.
-		const statusBarItemEl = this.addStatusBarItem();
-		statusBarItemEl.setText('Status Bar Text');
+	// --- Keep Helper Functions Here (or move to a dedicated utils file) ---
+	parseDurationToMinutes(durationStr?: string): number {
+		if (!durationStr) return 0;
+		let totalMinutes = 0;
+		const hourMatch = durationStr.match(/(\d+(\.\d+)?)\s*h/);
+		const minMatch = durationStr.match(/(\d+)\s*m/);
+		if (hourMatch) totalMinutes += parseFloat(hourMatch[1]) * 60;
+		if (minMatch) totalMinutes += parseInt(minMatch[1], 10);
+		return Math.round(totalMinutes);
+	}
 
-		// This adds a simple command that can be triggered anywhere
-		this.addCommand({
-			id: 'open-sample-modal-simple',
-			name: 'Open sample modal (simple)',
-			callback: () => {
-				new SampleModal(this.app).open();
-			}
-		});
-		// This adds an editor command that can perform some operation on the current editor instance
-		this.addCommand({
-			id: 'sample-editor-command',
-			name: 'Sample editor command',
-			editorCallback: (editor: Editor, view: MarkdownView) => {
-				console.log(editor.getSelection());
-				editor.replaceSelection('Sample Editor Command');
-			}
-		});
-		// This adds a complex command that can check whether the current state of the app allows execution of the command
-		this.addCommand({
-			id: 'open-sample-modal-complex',
-			name: 'Open sample modal (complex)',
-			checkCallback: (checking: boolean) => {
-				// Conditions to check
-				const markdownView = this.app.workspace.getActiveViewOfType(MarkdownView);
-				if (markdownView) {
-					// If checking is true, we're simply "checking" if the command can be run.
-					// If checking is false, then we want to actually perform the operation.
-					if (!checking) {
-						new SampleModal(this.app).open();
-					}
+	parseTime(baseDate: Date, timeStr: string): Date | null {
+		try {
+			const [hour, minute] = timeStr.split(':').map(Number);
+			if (isNaN(hour) || isNaN(minute)) return null;
+			const newDate = new Date(baseDate);
+			newDate.setHours(hour, minute, 0, 0);
+			return newDate;
+		} catch (e) {
+			console.error('Error parsing time:', timeStr, e);
+			return null;
+		}
+	}
 
-					// This command will only show up in Command Palette when the check function returns true
-					return true;
-				}
-			}
-		});
+	parseDate(dateStr: string): Date | null {
+		try {
+			return dateParse(dateStr, 'dd-MM-yyyy', new Date());
+		} catch (e) {
+			console.error('Error parsing date:', dateStr, e);
+			return null;
+		}
+	}
 
-		// This adds a settings tab so the user can configure various aspects of the plugin
-		this.addSettingTab(new SampleSettingTab(this.app, this));
+	formatMinutes(totalMinutes: number): string {
+		if (totalMinutes < 0) totalMinutes = 0;
+		const hours = Math.floor(totalMinutes / 60);
+		const minutes = totalMinutes % 60;
+		let durationStr = '';
+		if (hours > 0) durationStr += `${hours}h `;
+		if (minutes > 0) durationStr += `${minutes}m`;
+		return durationStr.trim() || '0m';
+	}
 
-		// If the plugin hooks up any global DOM events (on parts of the app that doesn't belong to this plugin)
-		// Using this function will automatically remove the event listener when this plugin is disabled.
-		this.registerDomEvent(document, 'click', (evt: MouseEvent) => {
-			console.log('click', evt);
-		});
+	// --- Updated Post Processor ---
+	async processTimeLogBlock(
+		source: string,
+		el: HTMLElement,
+		ctx: MarkdownPostProcessorContext,
+	) {
+		try {
+			const data: TimeLogRootData = parse(source);
 
-		// When registering intervals, this function will automatically clear the interval when the plugin is disabled.
-		this.registerInterval(window.setInterval(() => console.log('setInterval'), 5 * 60 * 1000));
+			// Bundle helper functions to pass as props
+			const helpers = {
+				parseDurationToMinutes: this.parseDurationToMinutes,
+				parseTime: this.parseTime,
+				parseDate: this.parseDate,
+				formatMinutes: this.formatMinutes,
+			};
+
+			// Clear the container and render the React component
+			el.empty(); // Ensure the container is empty before rendering
+			// For React 18+:
+			this.root = createRoot(el);
+			this.root.render(createElement(TimeLogView, { data, helpers }));
+
+			// Add a class to the container for styling if needed (optional)
+			el.addClass('time-log-react-container');
+
+		} catch (e) {
+			console.error('Error processing time-log block:', e);
+			el.empty();
+			// Keep error display simple or create an Error React component
+			const errorEl = el.createEl('pre', {
+				text: `Error rendering time-log:\n${e.message}\n\n${e.stack}`,
+				cls: 'time-log-error',
+			});
+			errorEl.style.whiteSpace = 'pre-wrap'; // Ensure wrapping
+			errorEl.style.color = 'var(--text-error)';
+		}
 	}
 
 	onunload() {
-
-	}
-
-	async loadSettings() {
-		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
-	}
-
-	async saveSettings() {
-		await this.saveData(this.settings);
-	}
-}
-
-class SampleModal extends Modal {
-	constructor(app: App) {
-		super(app);
-	}
-
-	onOpen() {
-		const {contentEl} = this;
-		contentEl.setText('Woah!');
-	}
-
-	onClose() {
-		const {contentEl} = this;
-		contentEl.empty();
-	}
-}
-
-class SampleSettingTab extends PluginSettingTab {
-	plugin: MyPlugin;
-
-	constructor(app: App, plugin: MyPlugin) {
-		super(app, plugin);
-		this.plugin = plugin;
-	}
-
-	display(): void {
-		const {containerEl} = this;
-
-		containerEl.empty();
-
-		new Setting(containerEl)
-			.setName('Setting #1')
-			.setDesc('It\'s a secret')
-			.addText(text => text
-				.setPlaceholder('Enter your secret')
-				.setValue(this.plugin.settings.mySetting)
-				.onChange(async (value) => {
-					this.plugin.settings.mySetting = value;
-					await this.plugin.saveSettings();
-				}));
+		console.log('Unloading Time Log Renderer Plugin');
+		// --- Important: Unmount React components ---
+		// Find all containers rendered by this plugin and unmount
+		document
+			.querySelectorAll('.time-log-react-container')
+			.forEach((container) => {
+				this.root?.unmount()
+			});
 	}
 }

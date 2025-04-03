@@ -1,8 +1,129 @@
-/*
+/* Keep general styles for view, info, add-entry */
+.time-log-view {
+	font-family: sans-serif;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 8px;
+	padding: 15px;
+	background-color: var(--background-secondary);
+}
 
-This CSS file will be included with your plugin, and
-available in the app when your plugin is enabled.
+.time-log-info {
+	margin-bottom: 15px;
+	padding-bottom: 10px;
+	border-bottom: 1px solid var(--background-modifier-border);
+}
+.time-log-info h3 { margin-top: 0; margin-bottom: 8px; }
 
-If your plugin does not need CSS, delete this file.
+.time-log-add-entry {
+	display: flex; gap: 8px; margin-bottom: 15px; align-items: center; flex-wrap: wrap;
+}
+.time-log-add-entry input[type='text'] {
+	padding: 5px 8px; border: 1px solid var(--background-modifier-border); border-radius: 4px; background-color: var(--background-primary); color: var(--text-normal);
+}
+.time-log-add-entry button { padding: 5px 10px; font-weight: bold; }
 
-*/
+/* Styles for collapsible sections */
+.time-log-section-header {
+	cursor: pointer;
+	margin-bottom: 5px;
+	color: var(--text-muted);
+	user-select: none;
+	font-weight: bold;
+}
+.time-log-section-header:hover { color: var(--text-normal); }
+
+.time-log-month { margin-bottom: 15px; }
+.time-log-week {
+	margin-left: 10px;
+	padding-left: 10px;
+	border-left: 1px solid var(--background-modifier-border-hover);
+	margin-bottom: 10px;
+}
+.time-log-month-content, .time-log-week-content { padding-top: 5px; }
+
+/* Styles for the day's section and table */
+.time-log-day-section {
+	margin-bottom: 12px;
+}
+
+.time-log-day-header {
+	font-weight: bold;
+	margin-bottom: 4px;
+	color: var(--text-faint);
+}
+
+.time-log-day-table {
+	width: 100%;
+	border-collapse: collapse;
+	font-size: 0.9em;
+}
+
+.time-log-day-table th,
+.time-log-day-table td {
+	border: 1px solid var(--background-modifier-border);
+	padding: 4px 6px;
+	text-align: left;
+	vertical-align: top; /* Align content to top */
+}
+
+.time-log-day-table th {
+	background-color: var(--background-secondary-alt);
+	font-weight: 600;
+	font-size: 0.9em;
+}
+
+/* Specific column widths (adjust as needed) */
+.time-log-day-table th:nth-child(1), .time-log-day-table td:nth-child(1) { width: 12%; } /* From */
+.time-log-day-table th:nth-child(2), .time-log-day-table td:nth-child(2) { width: 12%; } /* To */
+.time-log-day-table th:nth-child(3), .time-log-day-table td:nth-child(3) { width: 15%; } /* Break */
+.time-log-day-table th:nth-child(4), .time-log-day-table td:nth-child(4) { width: 18%; } /* Duration */
+.time-log-day-table th:nth-child(5), .time-log-day-table td:nth-child(5) { width: auto; } /* Details/Actions */
+
+
+/* Entry row specific styles */
+.time-log-entry-row td {
+	/* Optional: slightly lighter border for entry rows */
+	/* border-color: var(--background-modifier-border-hover); */
+}
+
+.time-log-entry-details {
+	display: flex;
+	justify-content: space-between;
+	align-items: flex-start; /* Align note and actions */
+}
+
+.time-log-entry-note {
+	font-style: italic;
+	color: var(--text-muted);
+	font-size: 0.9em;
+	margin-right: 10px; /* Space between note and actions */
+	flex-grow: 1; /* Allow note to take available space */
+}
+
+.time-log-entry-actions {
+	cursor: pointer;
+	color: var(--text-faint);
+	opacity: 0.5;
+	white-space: nowrap; /* Prevent wrapping */
+}
+.time-log-entry-row:hover .time-log-entry-actions {
+	opacity: 1;
+}
+
+/* Total row styles */
+.time-log-total-row td {
+	background-color: var(--background-secondary-alt);
+	border-top: 2px solid var(--background-modifier-border-focus); /* Emphasize total */
+}
+.time-log-total-row strong {
+	color: var(--text-normal);
+}
+
+/* Error styling */
+.time-log-error {
+	color: var(--text-error);
+	background-color: var(--background-primary-alt);
+	padding: 10px;
+	border-radius: 4px;
+	white-space: pre-wrap; /* Ensure error message wraps */
+}
