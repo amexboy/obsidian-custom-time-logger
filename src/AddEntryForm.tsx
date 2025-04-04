@@ -96,6 +96,7 @@ export const AddEntryForm: React.FC<AddEntryFormProps> = ({onAddEntry}) => {
 				placeholder="From"
 				aria-label="From time"
 				className="time-log-add-input"
+				step="1800"
 			/>
 			<input
 				type="text"
@@ -114,6 +115,7 @@ export const AddEntryForm: React.FC<AddEntryFormProps> = ({onAddEntry}) => {
 				placeholder="To"
 				aria-label="To time"
 				className="time-log-add-input"
+				step="1800"
 			/>
 			<button
 				onClick={handleAddClick}

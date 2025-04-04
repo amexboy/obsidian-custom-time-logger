@@ -363,8 +363,7 @@ export const TimeLogView: React.FC<TimeLogViewProps> = ({data: initialData, upda
 					// Here you would convert `newData` back to YAML
 					// and use the Obsidian API to write it back to the file.
 					// This part is complex and needs careful implementation in main.ts
-					console.log("Attempting to update source data (logic needed in main.ts)");
-					// await updateSourceData(newData); // Pass the updated data structure
+					await updateSourceData(newData); // Pass the updated data structure
 				} catch (error) {
 					console.error("Failed to update source data:", error);
 					// Optionally revert state or show an error

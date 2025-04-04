@@ -264,3 +264,7 @@
 	border-radius: 4px;
 	white-space: pre-wrap; /* Ensure error messages wrap */
 }
+
+.time-log-add-error {
+	display: block;
+}
