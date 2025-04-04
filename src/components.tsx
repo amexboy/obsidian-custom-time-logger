@@ -1,5 +1,5 @@
-import React, {useCallback, useMemo, useState} from "react";
-import {differenceInMinutes, format, getWeek} from "date-fns";
+import {useCallback, useMemo, useState} from "react";
+import {differenceInMinutes, format, getMonth, getWeek} from "date-fns";
 import type {NewEntryData} from "./AddEntryForm";
 import {AddEntryForm} from "./AddEntryForm";
 import {formatMinutes, parseDate, parseDurationToMinutes, parseTime} from "./helpers"; // Import the type
@@ -31,13 +31,6 @@ interface TimeLogRootBase {
 
 export type TimeLogRootData = TimeLogRootBase & MonthIndex;
 
-interface HelperFunctions {
-	parseDurationToMinutes: (durationStr?: string) => number;
-	parseTime: (baseDate: Date, timeStr: string) => Date | null;
-	parseDate: (dateStr: string) => Date | null; // Expects DD-MM-YYYY
-	formatMinutes: (totalMinutes: number) => string;
-}
-
 interface TimeLogViewProps {
 	data: TimeLogRootData;
 	// Add a prop to handle the update logic (passed from main.ts)
@@ -45,16 +38,22 @@ interface TimeLogViewProps {
 	updateSourceData?: (newData: TimeLogRootData) => Promise<void>;
 }
 
+interface TimeLogViewContext {
+	allExpanded: boolean;
+	currentMonth: string;
+	currentWeekNumber: number;
+}
+
 interface MonthSectionProps {
 	monthName: string;
 	monthData: DayLogData;
-	initiallyExpanded?: boolean;
+	context: TimeLogViewContext
 }
 
 interface WeekSectionProps {
 	weekNumber: number;
 	days: { dateStr: string; entries: TimeEntryData[] }[];
-	initiallyExpanded?: boolean;
+	context: TimeLogViewContext
 }
 
 interface DayEntryProps {
@@ -70,7 +69,7 @@ interface SingleEntryDisplayProps {
 // --- Components (SingleEntryDisplay, DayEntry, WeekSection, MonthSection remain the same) ---
 
 // Renders a single time entry line within a day
-const SingleEntryDisplay: React.FC<SingleEntryDisplayProps> = ({entry, baseDate}) => {
+const SingleEntryDisplay: React.FC<SingleEntryDisplayProps> = ({entry, baseDate}: SingleEntryDisplayProps) => {
 	const startTime = parseTime(baseDate, entry.from);
 	const endTime = parseTime(baseDate, entry.to);
 	const breakMinutes = parseDurationToMinutes(entry.break);
@@ -145,8 +144,12 @@ const DayEntry: React.FC<DayEntryProps> = ({dateStr, dayEntries,}: {
 	);
 };
 
-const WeekSection: React.FC<WeekSectionProps> = ({weekNumber, days, initiallyExpanded = false,}: {weekNumber: number, days: any, initiallyExpanded: boolean}) => {
-	const [isCollapsed, setIsCollapsed] = useState(!initiallyExpanded);
+const WeekSection: React.FC<WeekSectionProps> = ({weekNumber, days, context}: WeekSectionProps) => {
+	// Expand if EITHER initiallyExpanded is true (due to parent/ExpandAll)
+	// OR if this week is the current week.
+	const shouldBeInitiallyExpanded = context.allExpanded || weekNumber === context.currentWeekNumber;
+	const [isCollapsed, setIsCollapsed] = useState(!shouldBeInitiallyExpanded);
+
 	const toggleCollapse = () => setIsCollapsed(!isCollapsed);
 
 	const sortedDays = useMemo(
@@ -186,10 +189,31 @@ const WeekSection: React.FC<WeekSectionProps> = ({weekNumber, days, initiallyExp
 	);
 };
 
-const MonthSection: React.FC<MonthSectionProps> = ({monthName, monthData, initiallyExpanded = false,}) => {
-	const [isCollapsed, setIsCollapsed] = useState(!initiallyExpanded);
-	const toggleCollapse = () => setIsCollapsed(!isCollapsed);
+const MonthSection: React.FC<MonthSectionProps> = ({monthName, monthData, context}: MonthSectionProps) => {
+	const [isExpanded, setIsCollapsed] = useState(context.allExpanded || context.currentMonth === monthName);
+	const toggleCollapse = () => setIsCollapsed(!isExpanded);
+	// --- Calculate Total Month Minutes using useMemo ---
+	const totalMonthMinutes = useMemo(() => {
+		let totalMinutes = 0;
+		Object.keys(monthData).forEach((dateStr) => {
+			const baseDate = parseDate(dateStr); // Expects DD-MM-YYYY
+			if (!baseDate) return; // Skip if date is invalid
 
+			const dayEntries = monthData[dateStr];
+			dayEntries.forEach((entry: TimeEntryData) => {
+				const startTime = parseTime(baseDate, entry.from);
+				const endTime = parseTime(baseDate, entry.to);
+				const breakMinutes = parseDurationToMinutes(entry.break);
+
+				if (startTime && endTime && endTime > startTime) {
+					totalMinutes +=
+						differenceInMinutes(endTime, startTime) - breakMinutes;
+				}
+			});
+		});
+		return totalMinutes;
+	}, [monthData]); // Recalculate only if monthData changes
+	const formattedTotal = formatMinutes(totalMonthMinutes);
 	const weeks = useMemo(() => {
 		const grouped: {
 			[weekNum: number]: { dateStr: string; entries: TimeEntryData[] }[];
@@ -216,7 +240,7 @@ const MonthSection: React.FC<MonthSectionProps> = ({monthName, monthData, initia
 				weekNumber: parseInt(weekNum, 10),
 				days,
 			}))
-			.sort((a, b) => b.weekNumber - a.weekNumber);
+			.sort((a, b) => a.weekNumber - b.weekNumber);
 	}, [monthData]);
 
 	if (weeks.length === 0) return null;
@@ -224,23 +248,26 @@ const MonthSection: React.FC<MonthSectionProps> = ({monthName, monthData, initia
 	return (
 		<div className="time-log-month">
 			<div onClick={toggleCollapse} className="time-log-section-header">
-				{monthName}
+				<span className="time-log-month-name">{monthName}</span>
+
+				<span className="time-log-month-total">{formattedTotal}</span>
+
 				<span
 					className={`time-log-collapse-indicator-month ${
-						isCollapsed ? "collapsed" : "expanded"
+						isExpanded ? "expanded" : "collapsed"
 					}`}
 				>
-          {isCollapsed ? "▶" : "▼"}
+            {isExpanded ? "▼" : "▶"}
         </span>
 			</div>
-			{!isCollapsed && (
+			{isExpanded && (
 				<div className="time-log-month-content">
 					{weeks.map(({weekNumber, days}) => (
 						<WeekSection
-							key={weekNumber}
+							key={`${weekNumber}`}
 							weekNumber={weekNumber}
 							days={days}
-
+							context={context}
 						/>
 					))}
 				</div>
@@ -250,11 +277,16 @@ const MonthSection: React.FC<MonthSectionProps> = ({monthName, monthData, initia
 };
 
 // --- Main View Component ---
-export const TimeLogView: React.FC<TimeLogViewProps> = ({data: initialData, updateSourceData,}) => {
+export const TimeLogView: React.FC<TimeLogViewProps> = ({data: initialData, updateSourceData,}: TimeLogViewProps) => {
 	// Use state to manage the data for potential updates
 	const [data, setData] = useState<TimeLogRootData>(initialData);
+	const [allExpanded, setAllExpanded] = useState(false); // Initially all collapsed
 
-	const periodStartDate = parseDate(data.period.from); // Expects DD-MM-YYYY
+
+	// Also get current month name if needed for expanding current month too
+	// const currentMonthName = useMemo(() => format(new Date(), 'MMMM'), []);
+
+	const periodStartDate = parseDate(data.period.from);
 	const year = periodStartDate ? format(periodStartDate, "yyyy") : "Year";
 
 	const months = Object.keys(data).filter(
@@ -264,7 +296,22 @@ export const TimeLogView: React.FC<TimeLogViewProps> = ({data: initialData, upda
 		"January", "February", "March", "April", "May", "June",
 		"July", "August", "September", "October", "November", "December",
 	];
+
+
+	const currentWeekNumber = useMemo(
+		() => getWeek(new Date(), {weekStartsOn: 1}),
+		[],
+	);
+	const currentMonth = useMemo(() => monthOrder[getMonth(new Date(), {})], []);
+
+	const context: TimeLogViewContext = {allExpanded, currentWeekNumber, currentMonth};
+
 	months.sort((a, b) => monthOrder.indexOf(b) - monthOrder.indexOf(a)); //decs
+	// --- Toggle Function ---
+	const toggleExpandAll = () => {
+		setAllExpanded((prev) => !prev);
+	};
+
 
 	// --- Callback to handle adding a new entry ---
 	const handleAddEntry = useCallback(
@@ -348,13 +395,32 @@ export const TimeLogView: React.FC<TimeLogViewProps> = ({data: initialData, upda
 			{/* Pass the callback function to the form */}
 			<AddEntryForm onAddEntry={handleAddEntry}/>
 
+			{/* --- Controls Section --- */}
+			<div className="time-log-controls">
+				{/* Button moved to the right using CSS (e.g., flexbox justify-content: flex-end) */}
+				{/* Or simple inline style for demonstration */}
+				<button
+					onClick={toggleExpandAll}
+					className="time-log-expand-button icon-button" // Add class for styling
+					aria-label={allExpanded ? "Collapse All" : "Expand All"}
+					style={{marginLeft: "auto"}} // Simple way to push right
+				>
+					{/* Use icons (SVG, font icon, or simple characters) */}
+					{allExpanded ? "⊟" : "⊞"}
+					{/* Example using Obsidian icons (if available/setup): */}
+					{/* {allExpanded ? <span className="obsidian-icon" data-icon="double-chevron-up"></span> : <span className="obsidian-icon" data-icon="double-chevron-down"></span>} */}
+				</button>
+			</div>
+
+
 			{/* --- Log Entries --- */}
 			<div className="time-log-entries">
 				{months.map((monthName) => (
 					<MonthSection
-						key={monthName}
+						key={`${monthName}-${allExpanded}`}
 						monthName={monthName}
 						monthData={data[monthName] as DayLogData}
+						context={context}
 					/>
 				))}
 			</div>

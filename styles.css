@@ -151,6 +151,8 @@
 	text-align: center;
 	font-size: 0.8em;
 	transition: transform 0.2s ease-in-out;
+	flex-shrink: 0;
+	order: 1; /* <<< Make indicator the FIRST item */
 }
 
 .time-log-collapse-indicator.collapsed,
@@ -161,13 +163,25 @@
 .time-log-collapse-indicator-month.expanded {
 	transform: rotate(0deg);
 }
-
+.time-log-month-name {
+	flex-shrink: 0;
+	order: 2; /* <<< Make month name the SECOND item */
+}
+.time-log-month-total {
+	margin-left: auto; /* Keep pushing total to the right */
+	font-size: 0.9em;
+	font-weight: 500;
+	color: var(--text-muted, #bbb);
+	padding-left: 10px;
+	flex-shrink: 0;
+	order: 3; /* <<< Make total the THIRD (last) item */
+}
 /* Align month indicator to the right */
 .time-log-month > .time-log-section-header {
 	justify-content: space-between;
 }
 .time-log-month > .time-log-section-header .time-log-collapse-indicator-month {
-	order: 1; /* Move indicator to the end */
+	order: 0; /* Move indicator to the start */
 }
 
 .time-log-month-content,
