@@ -1,40 +1,28 @@
-import {useCallback, useMemo, useState} from "react";
-import {differenceInMinutes, format, getMonth, getWeek} from "date-fns";
-import type {NewEntryData} from "./AddEntryForm";
-import {AddEntryForm} from "./AddEntryForm";
-import {formatMinutes, parseDate, parseDurationToMinutes, parseTime} from "./helpers"; // Import the type
+import { useCallback, useMemo, useState } from 'react'; // Added React import
+import { differenceInMinutes, format, getMonth, getWeek } from 'date-fns';
 
-interface TimeEntryData {
-	from: string;
-	to: string;
-	break?: string;
-	note?: string;
-}
+// Import types and helpers from the central file
+import {
+	formatMinutes,
+	parseDate,
+	parseDurationToMinutes,
+	parseTime,
+	calculateMonthTotalMinutes,
+	groupDaysIntoWeeks,
+	monthOrder, // Import constant
+	type TimeEntryData, // Import types
+	type DayLogData,
+	type TimeLogRootData,
+	type NewEntryData,
+} from './helpers'; // Adjust path if needed
 
-interface DayLogData {
-	[date: string]: TimeEntryData[];
-}
+import { AddEntryForm } from './AddEntryForm';
 
-interface PeriodData {
-	from: string;
-	to: string;
-}
-
-interface MonthIndex {
-	[monthName: string]: DayLogData;
-}
-
-interface TimeLogRootBase {
-	project: string;
-	period: PeriodData;
-}
-
-export type TimeLogRootData = TimeLogRootBase & MonthIndex;
+// --- Component-Specific Prop Types (Remain Here) ---
 
 interface TimeLogViewProps {
 	data: TimeLogRootData;
-	// Add a prop to handle the update logic (passed from main.ts)
-	// This is crucial for actually saving the data
+	// Prop to handle updating the source markdown file
 	updateSourceData?: (newData: TimeLogRootData) => Promise<void>;
 }
 
@@ -47,13 +35,13 @@ interface TimeLogViewContext {
 interface MonthSectionProps {
 	monthName: string;
 	monthData: DayLogData;
-	context: TimeLogViewContext
+	context: TimeLogViewContext;
 }
 
 interface WeekSectionProps {
 	weekNumber: number;
 	days: { dateStr: string; entries: TimeEntryData[] }[];
-	context: TimeLogViewContext
+	context: TimeLogViewContext;
 }
 
 interface DayEntryProps {
@@ -66,34 +54,33 @@ interface SingleEntryDisplayProps {
 	baseDate: Date;
 }
 
-// --- Components (SingleEntryDisplay, DayEntry, WeekSection, MonthSection remain the same) ---
+// --- Sub-Components (Simplified Comments) ---
 
-// Renders a single time entry line within a day
-const SingleEntryDisplay: React.FC<SingleEntryDisplayProps> = ({entry, baseDate}: SingleEntryDisplayProps) => {
+const SingleEntryDisplay: React.FC<SingleEntryDisplayProps> = ({ entry, baseDate, }) => {
 	const startTime = parseTime(baseDate, entry.from);
 	const endTime = parseTime(baseDate, entry.to);
 	const breakMinutes = parseDurationToMinutes(entry.break);
 
 	let durationMinutes = 0;
-	let durationStr = "Invalid";
+	let durationStr = 'Invalid';
 
 	if (startTime && endTime && endTime > startTime) {
 		durationMinutes = differenceInMinutes(endTime, startTime) - breakMinutes;
 		durationStr = formatMinutes(durationMinutes);
 	} else if (startTime && endTime) {
-		durationStr = "Negative/Zero";
+		durationStr = 'Negative/Zero';
 	}
 
 	const breakText =
 		entry.break && breakMinutes > 0
 			? `${formatMinutes(breakMinutes)} break`
-			: "no break";
+			: 'no break';
 
 	return (
 		<div className="time-log-single-entry">
-      <span className="time-log-entry-time">
-        {entry.from} – {entry.to}
-      </span>
+			<span className="time-log-entry-time">
+				{entry.from} – {entry.to}
+			</span>
 			<span className="time-log-entry-break">{breakText}</span>
 			<span className="time-log-entry-duration">{durationStr}</span>
 			{entry.note && (
@@ -103,18 +90,14 @@ const SingleEntryDisplay: React.FC<SingleEntryDisplayProps> = ({entry, baseDate}
 	);
 };
 
-// Renders all entries for a single day + the daily total
-const DayEntry: React.FC<DayEntryProps> = ({dateStr, dayEntries,}: {
-	dateStr: string,
-	dayEntries: TimeEntryData[]
-}) => {
-	const baseDate = parseDate(dateStr); // Expects DD-MM-YYYY
+const DayEntry: React.FC<DayEntryProps> = ({ dateStr, dayEntries }) => {
+	const baseDate = parseDate(dateStr);
 	if (!baseDate) return null;
 
-	const weekday = format(baseDate, "EEEE");
+	const weekday = format(baseDate, 'EEEE');
 
 	let totalDayMinutes = 0;
-	dayEntries.forEach((entry: TimeEntryData) => {
+	dayEntries.forEach((entry) => {
 		const startTime = parseTime(baseDate, entry.from);
 		const endTime = parseTime(baseDate, entry.to);
 		const breakMinutes = parseDurationToMinutes(entry.break);
@@ -128,13 +111,13 @@ const DayEntry: React.FC<DayEntryProps> = ({dateStr, dayEntries,}: {
 			<div className="time-log-day-header">
 				<span className="time-log-day-weekday">{weekday}</span>
 				<span className="time-log-day-total">
-          {formatMinutes(totalDayMinutes)}
-        </span>
+					{formatMinutes(totalDayMinutes)}
+				</span>
 			</div>
 			<div className="time-log-day-entries-list">
 				{dayEntries.map((entry, index) => (
 					<SingleEntryDisplay
-						key={index}
+						key={index} // Consider a more stable key if entries can be deleted/reordered
 						entry={entry}
 						baseDate={baseDate}
 					/>
@@ -144,39 +127,32 @@ const DayEntry: React.FC<DayEntryProps> = ({dateStr, dayEntries,}: {
 	);
 };
 
-const WeekSection: React.FC<WeekSectionProps> = ({weekNumber, days, context}: WeekSectionProps) => {
-	// Expand if EITHER initiallyExpanded is true (due to parent/ExpandAll)
-	// OR if this week is the current week.
-	const shouldBeInitiallyExpanded = context.allExpanded || weekNumber === context.currentWeekNumber;
+const WeekSection: React.FC<WeekSectionProps> = ({ weekNumber, days, context, }) => {
+	// Expand if allExpanded is true OR if this week is the current week.
+	const shouldBeInitiallyExpanded =
+		context.allExpanded || weekNumber === context.currentWeekNumber;
 	const [isCollapsed, setIsCollapsed] = useState(!shouldBeInitiallyExpanded);
 
 	const toggleCollapse = () => setIsCollapsed(!isCollapsed);
 
-	const sortedDays = useMemo(
-		() =>
-			days.sort((a, b) => {
-				const dateA = parseDate(a.dateStr); // Expects DD-MM-YYYY
-				const dateB = parseDate(b.dateStr); // Expects DD-MM-YYYY
-				return (dateB?.getTime() || 0) - (dateA?.getTime() || 0);
-			}),
-		[days],
-	);
+	// Days are pre-sorted by the groupDaysIntoWeeks helper
+	const sortedDays = days;
 
 	return (
 		<div className="time-log-week">
 			<div onClick={toggleCollapse} className="time-log-section-header">
-        <span
-			className={`time-log-collapse-indicator ${
-				isCollapsed ? "collapsed" : "expanded"
-			}`}
-		>
-          {isCollapsed ? "▶" : "▼"}
-        </span>
+				<span
+					className={`time-log-collapse-indicator ${
+						isCollapsed ? 'collapsed' : 'expanded'
+					}`}
+				>
+					{isCollapsed ? '▶' : '▼'}
+				</span>
 				Week {weekNumber}
 			</div>
 			{!isCollapsed && (
 				<div className="time-log-week-content">
-					{sortedDays.map(({dateStr, entries}) => (
+					{sortedDays.map(({ dateStr, entries }) => (
 						<DayEntry
 							key={dateStr}
 							dateStr={dateStr}
@@ -189,59 +165,21 @@ const WeekSection: React.FC<WeekSectionProps> = ({weekNumber, days, context}: We
 	);
 };
 
-const MonthSection: React.FC<MonthSectionProps> = ({monthName, monthData, context}: MonthSectionProps) => {
-	const [isExpanded, setIsCollapsed] = useState(context.allExpanded || context.currentMonth === monthName);
-	const toggleCollapse = () => setIsCollapsed(!isExpanded);
-	// --- Calculate Total Month Minutes using useMemo ---
-	const totalMonthMinutes = useMemo(() => {
-		let totalMinutes = 0;
-		Object.keys(monthData).forEach((dateStr) => {
-			const baseDate = parseDate(dateStr); // Expects DD-MM-YYYY
-			if (!baseDate) return; // Skip if date is invalid
+const MonthSection: React.FC<MonthSectionProps> = ({ monthName, monthData, context, }) => {
+	const [isExpanded, setIsExpanded] = useState( // Corrected: useState(!isCollapsed) -> useState(isExpanded)
+		context.allExpanded || context.currentMonth === monthName,
+	);
+	const toggleCollapse = () => setIsExpanded(!isExpanded); // Corrected: setIsCollapsed -> setIsExpanded
 
-			const dayEntries = monthData[dateStr];
-			dayEntries.forEach((entry: TimeEntryData) => {
-				const startTime = parseTime(baseDate, entry.from);
-				const endTime = parseTime(baseDate, entry.to);
-				const breakMinutes = parseDurationToMinutes(entry.break);
-
-				if (startTime && endTime && endTime > startTime) {
-					totalMinutes +=
-						differenceInMinutes(endTime, startTime) - breakMinutes;
-				}
-			});
-		});
-		return totalMinutes;
-	}, [monthData]); // Recalculate only if monthData changes
+	// Use helper function for total calculation
+	const totalMonthMinutes = useMemo(
+		() => calculateMonthTotalMinutes(monthData),
+		[monthData],
+	);
 	const formattedTotal = formatMinutes(totalMonthMinutes);
-	const weeks = useMemo(() => {
-		const grouped: {
-			[weekNum: number]: { dateStr: string; entries: TimeEntryData[] }[];
-		} = {};
-		const sortedDays = Object.keys(monthData).sort((a, b) => {
-			const dateA = parseDate(a); // Expects DD-MM-YYYY
-			const dateB = parseDate(b); // Expects DD-MM-YYYY
-			return (dateB?.getTime() || 0) - (dateA?.getTime() || 0);
-		});
 
-		sortedDays.forEach((dateStr) => {
-			const entries = monthData[dateStr];
-			const baseDate = parseDate(dateStr); // Expects DD-MM-YYYY
-			if (baseDate && entries && entries.length > 0) {
-				const weekOfYear = getWeek(baseDate, {weekStartsOn: 1});
-				if (!grouped[weekOfYear]) {
-					grouped[weekOfYear] = [];
-				}
-				grouped[weekOfYear].push({dateStr, entries});
-			}
-		});
-		return Object.entries(grouped)
-			.map(([weekNum, days]) => ({
-				weekNumber: parseInt(weekNum, 10),
-				days,
-			}))
-			.sort((a, b) => b.weekNumber - a.weekNumber);
-	}, [monthData]);
+	// Use helper function for week grouping
+	const weeks = useMemo(() => groupDaysIntoWeeks(monthData), [monthData]);
 
 	if (weeks.length === 0) return null;
 
@@ -249,22 +187,21 @@ const MonthSection: React.FC<MonthSectionProps> = ({monthName, monthData, contex
 		<div className="time-log-month">
 			<div onClick={toggleCollapse} className="time-log-section-header">
 				<span className="time-log-month-name">{monthName}</span>
-
 				<span className="time-log-month-total">{formattedTotal}</span>
-
 				<span
 					className={`time-log-collapse-indicator-month ${
-						isExpanded ? "expanded" : "collapsed"
+						isExpanded ? 'expanded' : 'collapsed'
 					}`}
 				>
-            {isExpanded ? "▼" : "▶"}
-        </span>
+					{isExpanded ? '▼' : '▶'}
+				</span>
 			</div>
 			{isExpanded && (
 				<div className="time-log-month-content">
-					{weeks.map(({weekNumber, days}) => (
+					{weeks.map(({ weekNumber, days }) => (
 						<WeekSection
-							key={`${weekNumber}`}
+							// Add monthName to key to ensure uniqueness across months if week numbers repeat
+							key={`${monthName}-${weekNumber}`}
 							weekNumber={weekNumber}
 							days={days}
 							context={context}
@@ -277,109 +214,101 @@ const MonthSection: React.FC<MonthSectionProps> = ({monthName, monthData, contex
 };
 
 // --- Main View Component ---
-export const TimeLogView: React.FC<TimeLogViewProps> = ({data: initialData, updateSourceData,}: TimeLogViewProps) => {
-	// Use state to manage the data for potential updates
+export const TimeLogView: React.FC<TimeLogViewProps> = ({
+															data: initialData,
+															updateSourceData,
+														}) => {
 	const [data, setData] = useState<TimeLogRootData>(initialData);
-	const [allExpanded, setAllExpanded] = useState(false); // Initially all collapsed
-
-
-	// Also get current month name if needed for expanding current month too
-	// const currentMonthName = useMemo(() => format(new Date(), 'MMMM'), []);
+	const [allExpanded, setAllExpanded] = useState(false);
 
 	const periodStartDate = parseDate(data.period.from);
-	const year = periodStartDate ? format(periodStartDate, "yyyy") : "Year";
+	const year = periodStartDate ? format(periodStartDate, 'yyyy') : 'Year';
 
-	const months = Object.keys(data).filter(
-		(key) => key !== "project" && key !== "period",
-	);
-	const monthOrder = [
-		"January", "February", "March", "April", "May", "June",
-		"July", "August", "September", "October", "November", "December",
-	];
-
+	// Filter out non-month keys and sort using the imported constant/order
+	const months = useMemo(() => {
+		return Object.keys(data)
+			.filter((key) => key !== 'project' && key !== 'period')
+			.sort((a, b) => monthOrder.indexOf(b) - monthOrder.indexOf(a)); // Descending
+	}, [data]);
 
 	const currentWeekNumber = useMemo(
-		() => getWeek(new Date(), {weekStartsOn: 1}),
+		() => getWeek(new Date(), { weekStartsOn: 1 }),
 		[],
 	);
-	const currentMonth = useMemo(() => monthOrder[getMonth(new Date(), {})], []);
+	const currentMonth = useMemo(() => monthOrder[getMonth(new Date())], []); // Use imported monthOrder
 
-	const context: TimeLogViewContext = {allExpanded, currentWeekNumber, currentMonth};
+	const context: TimeLogViewContext = useMemo( // Memoize context object
+		() => ({ allExpanded, currentWeekNumber, currentMonth }),
+		[allExpanded, currentWeekNumber, currentMonth],
+	);
 
-	months.sort((a, b) => monthOrder.indexOf(b) - monthOrder.indexOf(a)); //decs
-	// --- Toggle Function ---
 	const toggleExpandAll = () => {
 		setAllExpanded((prev) => !prev);
 	};
 
-
-	// --- Callback to handle adding a new entry ---
 	const handleAddEntry = useCallback(
 		async (newEntry: NewEntryData) => {
-			console.log("Adding new entry:", newEntry);
+			console.log('Adding new entry:', newEntry);
 
-			// --- Update the local state for immediate feedback ---
-			const entryDate = parseDate(newEntry.date); // Expects DD-MM-YYYY
+			const entryDate = parseDate(newEntry.date);
 			if (!entryDate) {
-				console.error("Invalid date received from form:", newEntry.date);
-				return; // Or show an error to the user
+				console.error('Invalid date received from form:', newEntry.date);
+				// Consider showing a user-facing error (e.g., using Obsidian's Notice)
+				return;
 			}
-			const monthName = format(entryDate, "MMMM"); // e.g., April
+			const monthName = format(entryDate, 'MMMM');
 
-			// Create a deep copy to avoid mutating the original state directly
-			const newData = JSON.parse(JSON.stringify(data));
+			// Deep copy to avoid direct state mutation
+			const newData = JSON.parse(JSON.stringify(data)) as TimeLogRootData;
 
-			// Ensure month exists
+			// Ensure month and date arrays exist
 			if (!newData[monthName]) {
 				newData[monthName] = {};
 			}
-			// Ensure date exists within the month
 			if (!newData[monthName][newEntry.date]) {
 				newData[monthName][newEntry.date] = [];
 			}
 
 			// Add the new entry
-			newData[monthName][newEntry.date].push({
+			const entryToAdd: TimeEntryData = {
 				from: newEntry.from,
 				to: newEntry.to,
 				break: newEntry.breakStr, // Store the original string
 				// note: undefined // Add note field if needed later
-			});
+			};
+			newData[monthName][newEntry.date].push(entryToAdd);
 
-			// Sort entries within the day by start time (optional but good)
-			newData[monthName][newEntry.date].sort((a: TimeEntryData, b: TimeEntryData) => {
+			// Sort entries within the day by start time (descending for display)
+			newData[monthName][newEntry.date].sort((a, b) => {
 				const timeA = parseTime(entryDate, a.from)?.getTime() || 0;
 				const timeB = parseTime(entryDate, b.from)?.getTime() || 0;
-				return timeB - timeA;
+				return timeB - timeA; // Descending order
 			});
 
-
-			// Update the state to re-render the view
+			// Update local state for immediate UI feedback
 			setData(newData);
 
-			// --- Persist the changes (if update function is provided) ---
+			// Persist the changes via the passed callback
 			if (updateSourceData) {
 				try {
-					// Here you would convert `newData` back to YAML
-					// and use the Obsidian API to write it back to the file.
-					// This part is complex and needs careful implementation in main.ts
-					await updateSourceData(newData); // Pass the updated data structure
+					await updateSourceData(newData);
 				} catch (error) {
-					console.error("Failed to update source data:", error);
-					// Optionally revert state or show an error
+					console.error('Failed to update source data:', error);
+					// TODO: Consider reverting state or showing a persistent error message
+					// Example: setData(data); // Revert to previous state
+					// Example: new Notice("Failed to save entry.");
 				}
 			} else {
 				console.warn(
-					"updateSourceData function not provided. Changes are not saved.",
+					'updateSourceData function not provided. Changes are not saved.',
 				);
 			}
 		},
-		[data, updateSourceData], // Include dependencies
+		[data, updateSourceData], // Dependencies for useCallback
 	);
 
 	return (
 		<div className="time-log-view">
-			{/* --- Header Info --- */}
 			<div className="time-log-info">
 				<h3>{`${year}-${data.project}`}</h3>
 				<div className="time-log-meta">
@@ -390,32 +319,24 @@ export const TimeLogView: React.FC<TimeLogViewProps> = ({data: initialData, upda
 				</div>
 			</div>
 
-			{/* --- Add Entry Form --- */}
-			{/* Pass the callback function to the form */}
-			<AddEntryForm onAddEntry={handleAddEntry}/>
+			<AddEntryForm onAddEntry={handleAddEntry} />
 
-			{/* --- Controls Section --- */}
 			<div className="time-log-controls">
-				{/* Button moved to the right using CSS (e.g., flexbox justify-content: flex-end) */}
-				{/* Or simple inline style for demonstration */}
 				<button
 					onClick={toggleExpandAll}
-					className="time-log-expand-button icon-button" // Add class for styling
-					aria-label={allExpanded ? "Collapse All" : "Expand All"}
-					style={{marginLeft: "auto"}} // Simple way to push right
+					className="time-log-expand-button icon-button"
+					aria-label={allExpanded ? 'Collapse All' : 'Expand All'}
+					style={{ marginLeft: 'auto' }} // Simple alignment
 				>
-					{/* Use icons (SVG, font icon, or simple characters) */}
-					{allExpanded ? "⊟" : "⊞"}
-					{/* Example using Obsidian icons (if available/setup): */}
-					{/* {allExpanded ? <span className="obsidian-icon" data-icon="double-chevron-up"></span> : <span className="obsidian-icon" data-icon="double-chevron-down"></span>} */}
+					{/* Simple text icons */}
+					{allExpanded ? '⊟' : '⊞'}
 				</button>
 			</div>
 
-
-			{/* --- Log Entries --- */}
 			<div className="time-log-entries">
 				{months.map((monthName) => (
 					<MonthSection
+						// Add allExpanded to key to force re-render of children's initial state
 						key={`${monthName}-${allExpanded}`}
 						monthName={monthName}
 						monthData={data[monthName] as DayLogData}

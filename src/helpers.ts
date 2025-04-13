@@ -1,6 +1,61 @@
-// main.ts (or a separate utils.ts)
 
-import {format, parse as dateParse,} from 'date-fns';
+import {
+	App,
+	MarkdownPostProcessorContext,
+	Notice,
+	TFile,
+} from 'obsidian';
+
+import {
+	parse as dateParse,
+	format,
+	differenceInMinutes,
+	getWeek,
+} from 'date-fns'; // Add date-fns imports needed here
+
+// --- Data Types ---
+
+export interface TimeEntryData {
+	from: string; // HH:mm
+	to: string; // HH:mm
+	break?: string; // e.g., "30m", "1h"
+	note?: string;
+}
+
+export interface DayLogData {
+	[date: string]: TimeEntryData[]; // Key is DD-MM-YYYY
+}
+
+export interface PeriodData {
+	from: string; // DD-MM-YYYY
+	to: string; // DD-MM-YYYY
+}
+
+export interface MonthIndex {
+	[monthName: string]: DayLogData; // Key is "January", "February", etc.
+}
+
+export interface TimeLogRootBase {
+	project: string;
+	period: PeriodData;
+}
+
+export type TimeLogRootData = TimeLogRootBase & MonthIndex;
+
+// Type for the data passed from the AddEntryForm
+export interface NewEntryData {
+	date: string; // DD-MM-YYYY
+	from: string; // HH:mm
+	to: string; // HH:mm
+	breakStr?: string; // e.g., "30m", "1h"
+}
+
+// --- Constants ---
+
+export const monthOrder: string[] = [
+	'January', 'February', 'March', 'April', 'May', 'June',
+	'July', 'August', 'September', 'October', 'November', 'December',
+];
 
 /**
  * Parses a duration string (e.g., "1h", "30m", "1.5h", "1h 30m")
@@ -141,4 +196,164 @@ export function formatMinutes(totalMinutes: number): string {
 	// Should only be empty if totalMinutes was 0, handled above.
 	// But as a fallback, return '0m'.
 	return durationStr || '0m';
+}
+
+/**
+ * Calculates the total logged minutes for a given month's data.
+ */
+export function calculateMonthTotalMinutes(monthData: DayLogData): number {
+	let totalMinutes = 0;
+	Object.keys(monthData).forEach((dateStr) => {
+		const baseDate = parseDate(dateStr);
+		if (!baseDate) return; // Skip if date is invalid
+
+		const dayEntries = monthData[dateStr];
+		dayEntries.forEach((entry: TimeEntryData) => {
+			const startTime = parseTime(baseDate, entry.from);
+			const endTime = parseTime(baseDate, entry.to);
+			const breakMinutes = parseDurationToMinutes(entry.break);
+
+			if (startTime && endTime && endTime > startTime) {
+				totalMinutes +=
+					differenceInMinutes(endTime, startTime) - breakMinutes;
+			}
+		});
+	});
+	return totalMinutes;
+}
+
+/**
+ * Groups day entries within a month by week number.
+ */
+export function groupDaysIntoWeeks(monthData: DayLogData): {
+	weekNumber: number;
+	days: { dateStr: string; entries: TimeEntryData[] }[];
+}[] {
+	const grouped: {
+		[weekNum: number]: { dateStr: string; entries: TimeEntryData[] }[];
+	} = {};
+
+	// Sort days chronologically first before grouping
+	const sortedDays = Object.keys(monthData).sort((a, b) => {
+		const dateA = parseDate(a);
+		const dateB = parseDate(b);
+		// Handle potential null dates, though ideally data is clean
+		return (dateA?.getTime() || 0) - (dateB?.getTime() || 0);
+	});
+
+	sortedDays.forEach((dateStr) => {
+		const entries = monthData[dateStr];
+		const baseDate = parseDate(dateStr);
+		if (baseDate && entries && entries.length > 0) {
+			// Use weekStartsOn: 1 for ISO standard (Monday)
+			const weekOfYear = getWeek(baseDate, { weekStartsOn: 1 });
+			if (!grouped[weekOfYear]) {
+				grouped[weekOfYear] = [];
+			}
+			// Add the day's data to the correct week
+			grouped[weekOfYear].push({ dateStr, entries });
+		}
+	});
+
+	// Convert grouped object to array and sort weeks descending
+	return Object.entries(grouped)
+		.map(([weekNum, days]) => ({
+			weekNumber: parseInt(weekNum, 10),
+			days: days.sort((a, b) => { // Sort days within week descending for display
+				const dateA = parseDate(a.dateStr);
+				const dateB = parseDate(b.dateStr);
+				return (dateB?.getTime() || 0) - (dateA?.getTime() || 0);
+			}),
+		}))
+		.sort((a, b) => b.weekNumber - a.weekNumber); // Sort weeks descending
+}
+
+/**
+ * Displays an error message within a given HTML element, clearing the element first.
+ * Useful for showing errors directly in Obsidian's preview where a code block failed.
+ * @param el The HTMLElement to display the error in.
+ * @param error The error object or message string.
+ * @param source Optional source string to include in the error display.
+ */
+export function displayErrorInElement(
+	el: HTMLElement,
+	error: Error | string,
+	source?: string,
+): void {
+	el.empty();
+	el.addClass('time-log-error');
+	const errorMsg = error instanceof Error ? error.message : error;
+	const text = `Error rendering time-log:\n${errorMsg}${
+		source ? `\n\nSource:\n${source}` : ''
+	}`;
+
+	const errorEl = el.createEl('pre');
+	errorEl.createEl('code', { text });
+
+	// Basic styling for visibility
+	errorEl.style.backgroundColor = 'var(--background-modifier-error)';
+	errorEl.style.color = 'var(--text-error)';
+	errorEl.style.padding = '10px';
+	errorEl.style.borderRadius = '4px';
+	errorEl.style.whiteSpace = 'pre-wrap'; // Ensure source wraps
+}
+
+/**
+ * Updates the content of a specific code block within a Markdown file.
+ * Uses the MarkdownPostProcessorContext to identify the block's boundaries.
+ * @param app Obsidian App instance.
+ * @param ctx The context object provided to the code block processor.
+ * @param newContent The new string content to write into the code block.
+ * @throws Error if the file cannot be found, read, or modified, or if section info is missing.
+ */
+export async function updateCodeBlockContent(
+	app: App,
+	ctx: MarkdownPostProcessorContext,
+	newContent: string,
+): Promise<void> {
+	const filePath = ctx.sourcePath;
+	const file = app.vault.getAbstractFileByPath(filePath);
+
+	if (!(file instanceof TFile)) {
+		const msg = `Source file not found: ${filePath}`;
+		console.error(msg);
+		new Notice(`Error: Could not find source file ${filePath}`);
+		throw new Error(msg);
+	}
+
+	try {
+		const fileContent = await app.vault.read(file);
+		const fileLines = fileContent.split('\n');
+
+		const sectionInfo = ctx.getSectionInfo(ctx.el);
+		if (!sectionInfo) {
+			const msg = `Could not get section info for block: ${filePath}`;
+			console.error(msg);
+			new Notice('Error: Could not get section info to update block.');
+			throw new Error(msg);
+		}
+		const startLine = sectionInfo.lineStart;
+		const endLine = sectionInfo.lineEnd;
+
+		// Replace the old block content with the new content
+		// Keep the ```time-log line, replace content lines, keep the closing ```
+		const newFileLines = [
+			...fileLines.slice(0, startLine + 1),
+			newContent.trim(),
+			...fileLines.slice(endLine),
+		];
+
+		const newFileContent = newFileLines.join('\n');
+
+		await app.vault.modify(file, newFileContent);
+		console.log('Code block updated successfully in:', filePath);
+	} catch (error) {
+		console.error(
+			'Error updating code block content in file:',
+			filePath,
+			error,
+		);
+		new Notice(`Error saving changes: ${error.message}`);
+		throw error;
+	}
 }
