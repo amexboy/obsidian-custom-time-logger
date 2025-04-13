@@ -7,12 +7,12 @@ import { parse as yamlParse, stringify as yamlStringify } from 'yaml';
 import { createRoot, Root } from 'react-dom/client';
 import { createElement } from 'react';
 
-import type { TimeLogRootData } from './src/components';
-import { TimeLogView } from './src/components';
 import {
 	displayErrorInElement,
 	updateCodeBlockContent,
-} from './src/helpers'; // Import new helpers
+} from './src/helpers';
+import {TimeLogView} from "./src/timeLogView";
+import {TimeLogRootData} from "./src/types"; // Import new helpers
 
 export default class TimeLoggerPlugin extends Plugin {
 	private roots: Map<string, Root> = new Map();

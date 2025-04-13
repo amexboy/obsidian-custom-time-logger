@@ -12,43 +12,10 @@ import {
 	differenceInMinutes,
 	getWeek,
 } from 'date-fns'; // Add date-fns imports needed here
+import { jsPDF } from 'jspdf';
+import 'jspdf-autotable';
+import {DayLogData, PeriodData, TimeEntryData} from "./types";
 
-// --- Data Types ---
-
-export interface TimeEntryData {
-	from: string; // HH:mm
-	to: string; // HH:mm
-	break?: string; // e.g., "30m", "1h"
-	note?: string;
-}
-
-export interface DayLogData {
-	[date: string]: TimeEntryData[]; // Key is DD-MM-YYYY
-}
-
-export interface PeriodData {
-	from: string; // DD-MM-YYYY
-	to: string; // DD-MM-YYYY
-}
-
-export interface MonthIndex {
-	[monthName: string]: DayLogData; // Key is "January", "February", etc.
-}
-
-export interface TimeLogRootBase {
-	project: string;
-	period: PeriodData;
-}
-
-export type TimeLogRootData = TimeLogRootBase & MonthIndex;
-
-// Type for the data passed from the AddEntryForm
-export interface NewEntryData {
-	date: string; // DD-MM-YYYY
-	from: string; // HH:mm
-	to: string; // HH:mm
-	breakStr?: string; // e.g., "30m", "1h"
-}
 
 // --- Constants ---
 
@@ -356,4 +323,61 @@ export async function updateCodeBlockContent(
 		new Notice(`Error saving changes: ${error.message}`);
 		throw error;
 	}
+}
+
+export function generatePdfData(
+	monthName: string,
+	monthData: DayLogData,
+    projectName: string,
+    period: PeriodData,
+): {
+    header: string[];
+    body: any[][];
+    monthTotal: string;
+    projectName: string;
+    period: PeriodData;
+} {
+	const header = ['Date', 'From', 'To', 'Break', 'Duration', 'Note'];
+	const body: any[][] = [];
+
+	Object.entries(monthData).forEach(([dateStr, entries]) => {
+		const baseDate = parseDate(dateStr);
+		if (!baseDate) return;
+
+		entries.forEach((entry) => {
+			const startTime = parseTime(baseDate, entry.from);
+			const endTime = parseTime(baseDate, entry.to);
+			const breakMinutes = parseDurationToMinutes(entry.break);
+
+			let durationMinutes = 0;
+			let durationStr = 'Invalid';
+
+			if (startTime && endTime && endTime > startTime) {
+				durationMinutes = differenceInMinutes(endTime, startTime) - breakMinutes;
+				durationStr = formatMinutes(durationMinutes);
+			} else if (startTime && endTime) {
+				durationStr = 'Negative/Zero';
+			}
+
+			body.push([
+				dateStr,
+				entry.from,
+				entry.to,
+				entry.break || '',
+				durationStr,
+				entry.note || '',
+			]);
+		});
+	});
+
+    const monthTotalMinutes = calculateMonthTotalMinutes(monthData);
+    const monthTotal = formatMinutes(monthTotalMinutes);
+
+    return {
+        header,
+        body,
+        monthTotal,
+        projectName,
+        period,
+    };
 }

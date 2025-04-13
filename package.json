@@ -26,8 +26,11 @@
 	"dependencies": {
 		"date-fns": "^4.1.0",
 		"js-yaml": "^4.1.0",
+		"jspdf": "^3.0.1",
+		"jspdf-autotable": "^5.0.2",
 		"react": "^19.1.0",
 		"react-dom": "^19.1.0",
+		"styled-components": "^6.1.17",
 		"yaml": "^2.7.1"
 	}
 }

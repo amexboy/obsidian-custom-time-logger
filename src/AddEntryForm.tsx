@@ -1,14 +1,9 @@
 // src/AddEntryForm.tsx
 import {useCallback, useState} from "react";
 import {format} from "date-fns";
+import {NewEntryData} from "./types";
 
-// Define the structure of the data passed up when adding
-export interface NewEntryData {
-	date: string; // YYYY-MM-DD format
-	from: string; // HH:mm format
-	to: string; // HH:mm format
-	breakStr: string; // Original break string e.g., "30m", "1h"
-}
+
 
 interface AddEntryFormProps {
 	// Callback function to execute when a valid entry is added
