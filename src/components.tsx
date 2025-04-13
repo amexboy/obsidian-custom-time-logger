@@ -157,7 +157,7 @@ const WeekSection: React.FC<WeekSectionProps> = ({weekNumber, days, context}: We
 			days.sort((a, b) => {
 				const dateA = parseDate(a.dateStr); // Expects DD-MM-YYYY
 				const dateB = parseDate(b.dateStr); // Expects DD-MM-YYYY
-				return (dateA?.getTime() || 0) - (dateB?.getTime() || 0);
+				return (dateB?.getTime() || 0) - (dateA?.getTime() || 0);
 			}),
 		[days],
 	);
@@ -240,7 +240,7 @@ const MonthSection: React.FC<MonthSectionProps> = ({monthName, monthData, contex
 				weekNumber: parseInt(weekNum, 10),
 				days,
 			}))
-			.sort((a, b) => a.weekNumber - b.weekNumber);
+			.sort((a, b) => b.weekNumber - a.weekNumber);
 	}, [monthData]);
 
 	if (weeks.length === 0) return null;
@@ -350,7 +350,7 @@ export const TimeLogView: React.FC<TimeLogViewProps> = ({data: initialData, upda
 			newData[monthName][newEntry.date].sort((a: TimeEntryData, b: TimeEntryData) => {
 				const timeA = parseTime(entryDate, a.from)?.getTime() || 0;
 				const timeB = parseTime(entryDate, b.from)?.getTime() || 0;
-				return timeA - timeB;
+				return timeB - timeA;
 			});
 
 
