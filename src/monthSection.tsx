@@ -42,7 +42,7 @@ const CloseButton = styled.button`
 	margin-left: auto;
 `;
 
-export const MonthSection: React.FC<MonthSectionProps> = ({monthName, monthData, context,}) => {
+export const MonthSection: React.FC<MonthSectionProps> = ({monthName, monthData, context, projectName}) => {
 	const [isExpanded, setIsExpanded] = useState(
 		context.allExpanded || context.currentMonth === monthName,
 	);
@@ -56,15 +56,24 @@ export const MonthSection: React.FC<MonthSectionProps> = ({monthName, monthData,
 
 	const weeks = useMemo(() => groupDaysIntoWeeks(monthData), [monthData]);
 
-	const period: PeriodData = useMemo(
-		() => ({
-			from: '01-01-2025', // Example start date
-			to: '31-01-2025', // Example end date
-		}),
-		[],
-	);
+	const period: PeriodData = useMemo(() => {
+		// Extract all the keys (dates) from the monthData object
+		const dates = Object.keys(monthData);
 
-	const projectName = 'Your Project Name';
+		// Sort the dates to ensure they are in chronological order
+		const sortedDates = dates.sort((a, b) => {
+			const [dayA, monthA, yearA] = a.split('-').map(Number);
+			const [dayB, monthB, yearB] = b.split('-').map(Number);
+
+			return new Date(yearA, monthA - 1, dayA).getTime() - new Date(yearB, monthB - 1, dayB).getTime();
+		});
+
+		// Get the first and last dates from the sorted list
+		const from = sortedDates[0]; // First date
+		const to = sortedDates[sortedDates.length - 1]; // Last date
+
+		return { from, to };
+	}, [monthData]);
 
 	const [isDialogOpen, setIsDialogOpen] = useState(false);
 

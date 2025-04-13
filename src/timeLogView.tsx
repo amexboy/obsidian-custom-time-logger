@@ -10,10 +10,7 @@ import {AddEntryForm} from "./AddEntryForm";
 import {DayLogData, NewEntryData, TimeEntryData, TimeLogRootData, TimeLogViewContext, TimeLogViewProps} from "./types";
 import {MonthSection} from "./monthSection";
 
-export const TimeLogView: React.FC<TimeLogViewProps> = ({
-															data: initialData,
-															updateSourceData,
-														}) => {
+export const TimeLogView: React.FC<TimeLogViewProps> = ({ data: initialData, updateSourceData, }) => {
 	const [data, setData] = useState<TimeLogRootData>(initialData);
 	const [allExpanded, setAllExpanded] = useState(false);
 
@@ -136,6 +133,7 @@ export const TimeLogView: React.FC<TimeLogViewProps> = ({
 						key={`${monthName}-${allExpanded}`}
 						monthName={monthName}
 						monthData={data[monthName] as DayLogData}
+						projectName={data.project}
 						context={context}
 					/>
 				))}
