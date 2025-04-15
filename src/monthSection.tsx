@@ -1,8 +1,8 @@
-import React, {useCallback, useMemo, useRef, useState,} from 'react';
+import {useCallback, useMemo, useRef, useState,} from 'react';
 import {MonthSectionProps, PeriodData} from './types';
 import {calculateMonthTotalMinutes, formatMinutes, groupDaysIntoWeeks,} from './helpers';
 import {WeekSection} from './weekSection';
-import TimeLogReport from './TimeLogReport'; // Import the new component
+import TimeLogReport from './timeLogReport'; // Import the new component
 import 'jspdf-autotable';
 import styled from 'styled-components';
 import {jsPDF} from "jspdf";
@@ -84,15 +84,17 @@ export const MonthSection: React.FC<MonthSectionProps> = ({monthName, monthData,
 	const reportRef = useRef<HTMLDivElement>(null);
 	const generatePdf = useCallback(() => {
 		if (reportRef.current) {
-			const doc = new jsPDF('p', 'pt', 'a4'); // Portrait, points, A4 size
+			const doc = new jsPDF('p', 'mm', 'a4'); // Portrait, points, A4 size
 			doc.html(reportRef.current, {
 				callback: function (doc) {
 					doc.save(`TimeLogReport-${monthName}.pdf`);
 				},
-				x: 20, // Left margin
-				y: 20, // Top margin
-				width: 170, // Content width in mm (A4 width is 210mm, leaving 20mm margins on each side)
-				windowWidth: 800, // Ensures proper scaling of the content
+				autoPaging: false,
+				margin: 0,
+				// x: 10, // Left margin
+				// y: 10, // Top margin
+				width: 190, // Content width in mm (A4 width is 210mm, leaving 20mm margins on each side)
+				windowWidth: 800
 			});
 		}
 	}, [monthName]);

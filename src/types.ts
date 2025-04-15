@@ -50,6 +50,7 @@ export interface TimeLogViewContext {
 export interface MonthSectionProps {
 	monthName: string;
 	monthData: DayLogData;
+	projectName: string;
 	context: TimeLogViewContext;
 }
 
